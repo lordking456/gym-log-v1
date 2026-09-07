@@ -28,6 +28,12 @@ label{display:block;color:var(--muted);font-size:12px;margin-top:11px}
 .hidden{display:none!important}.good{color:var(--good);font-weight:700}
 .setrow{display:grid;grid-template-columns:42px 1fr 1fr 62px 42px;gap:6px;align-items:center;margin-top:9px}
 .setrow input{margin:0}.setnum{text-align:center;color:var(--muted);font-size:13px}
+
+.table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.table th,.table td{text-align:left;padding:9px 5px;border-bottom:1px solid var(--line)}
+.table th{color:var(--muted);font-weight:600}.table td:last-child,.table th:last-child{text-align:right}
+.progress-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0}
+.metric{font-size:23px;font-weight:750}.trend{font-size:12px;color:var(--good)}.muted{color:var(--muted)}
 .toast{position:fixed;left:16px;right:16px;bottom:88px;background:#24242a;border:1px solid var(--line);padding:12px 14px;border-radius:13px;text-align:center;z-index:20}
 canvas{width:100%;height:180px;background:#101014;border-radius:12px;margin-top:10px}
 </style>
@@ -69,11 +75,91 @@ canvas{width:100%;height:180px;background:#101014;border-radius:12px;margin-top:
 </section>
 
 <section id="progress" class="hidden">
-<h1>Progress 📈</h1><div class="sub">Strength + body progress.</div>
-<div class="card"><b>Body weight</b><label>Current weight (kg)<input id="bw" type="number" step=".1" inputmode="decimal" value="75"></label><button id="saveBW" class="full" style="margin-top:10px">Save weight</button></div>
-<div class="card"><b>Strength chart</b><canvas id="chart" width="500" height="180"></canvas><div class="small">Logged weight × reps for Incline Dumbbell Press.</div></div>
-<div class="card"><b>Workout history</b><div id="hist"></div></div>
-<div class="card"><b>Data backup</b><div class="small">Export a backup regularly. Data is stored locally on this device.</div><button id="exportData" class="secondary full" style="margin-top:10px">Export backup</button></div>
+<h1>Progress 📈</h1>
+<div class="sub">Strength, volume, consistency & body progress.</div>
+
+<div class="row">
+  <div class="card stat"><div class="label">WORKOUTS</div><div class="value" id="pWorkouts">0</div></div>
+  <div class="card stat"><div class="label">TOTAL SETS</div><div class="value" id="pSets">0</div></div>
+</div>
+<div class="row">
+  <div class="card stat"><div class="label">TOTAL VOLUME</div><div class="value" id="pVolume">0</div><div class="small">kg × reps</div></div>
+  <div class="card stat"><div class="label">PRs</div><div class="value" id="pPRs">0</div></div>
+</div>
+
+<div class="card">
+  <div class="flex"><b>Breakdown</b><span class="pill" id="pPeriod">All time</span></div>
+  <div class="row" style="margin-top:10px">
+    <button type="button" id="pOverview" class="secondary full">Overview</button>
+    <button type="button" id="pMuscle" class="secondary full">Muscle</button>
+    <button type="button" id="pExercise" class="secondary full">Exercise</button>
+    <button type="button" id="pBody" class="secondary full">Body</button>
+  </div>
+</div>
+
+<div id="progressOverview">
+  <div class="card">
+    <div class="flex"><b>Weekly overview</b><span class="small">latest 8 weeks</span></div>
+    <div id="weeklyBreakdown"></div>
+  </div>
+  <div class="card">
+    <div class="flex"><b>Consistency</b><span class="pill" id="consistencyPill">0%</span></div>
+    <div class="small" style="margin-top:7px">Based on workout days in the latest 7-day window.</div>
+    <div style="height:10px;background:#101014;border-radius:8px;margin-top:10px;overflow:hidden"><div id="consistencyBar" style="height:100%;width:0%;background:var(--accent);border-radius:8px"></div></div>
+  </div>
+</div>
+
+<div id="progressMuscle" class="hidden">
+  <div class="card">
+    <label>Muscle group
+      <select id="muscleFilter">
+        <option value="all">All muscle groups</option>
+        <option value="Chest + Triceps">Chest + Triceps</option>
+        <option value="Back + Biceps">Back + Biceps</option>
+        <option value="Legs">Legs</option>
+        <option value="Shoulders">Shoulders</option>
+        <option value="Full Body">Full Body</option>
+      </select>
+    </label>
+  </div>
+  <div id="muscleBreakdown"></div>
+</div>
+
+<div id="progressExercise" class="hidden">
+  <div class="card">
+    <label>Exercise
+      <select id="exerciseFilter"></select>
+    </label>
+  </div>
+  <div id="exerciseBreakdown"></div>
+</div>
+
+<div id="progressBody" class="hidden">
+  <div class="card">
+    <b>Body weight</b>
+    <label>Current weight (kg)
+      <input id="bw" type="number" step=".1" inputmode="decimal" value="75">
+    </label>
+    <button id="saveBW" class="full" style="margin-top:10px">Save weight</button>
+    <div id="weightHistory" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="flex"><b>Strength chart</b><span class="small">Incline DB Press</span></div>
+  <canvas id="chart" width="500" height="180"></canvas>
+</div>
+
+<div class="card">
+  <div class="flex"><b>Workout history</b><span class="small">latest first</span></div>
+  <div id="hist"></div>
+</div>
+
+<div class="card">
+  <b>Data backup</b>
+  <div class="small" style="margin-top:6px">Export a backup regularly. Data is stored locally on this device.</div>
+  <button id="exportData" class="secondary full" style="margin-top:10px">Export backup</button>
+</div>
 </section>
 </main>
 
@@ -135,7 +221,7 @@ function show(id){
   ['home','workout','progress'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(id==='home'?'navHome':id==='workout'?'navWorkout':'navProgress').classList.add('active');
-  render(); if(id==='progress') draw();
+  render(); if(id==='progress') renderProgress();
 }
 function currentWorkoutGroup(){
   const d=localDateKey();
@@ -225,16 +311,160 @@ function render(){
     '<div class="exercise flex"><span>'+w.date+' · '+w.group+'</span><span>'+db.sets.filter(s=>s.date===w.date).length+' sets</span></div>'
   ).join('')||'<div class="small">No completed workouts yet.</div>';
 }
+function dateFromKey(key){
+  const [y,m,d]=key.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+function addDays(d,n){
+  const x=new Date(d); x.setDate(x.getDate()+n); return x;
+}
+function weekStart(d){
+  const x=new Date(d); const day=x.getDay(); const diff=(day+6)%7;
+  x.setDate(x.getDate()-diff); x.setHours(0,0,0,0); return x;
+}
+function fmtKg(v){
+  if(v==null || !isFinite(v)) return '—';
+  return (Math.round(v*10)/10)+' kg';
+}
+function exerciseGroups(){
+  const map={};
+  db.sets.forEach(s=>{
+    if(!map[s.ex]) map[s.ex]=[];
+    map[s.ex].push(s);
+  });
+  return map;
+}
+function workoutGroupForDate(date){
+  return db.workouts.find(w=>w.date===date)?.group || 'Other';
+}
+function renderProgress(){
+  const valid=db.sets.filter(s=>s.reps!=null && s.kg!=null);
+  const volume=valid.reduce((a,s)=>a+(+s.kg||0)*(+s.reps||0),0);
+  const prs={};
+  valid.forEach(s=>{
+    const score=s.kg*s.reps;
+    if(!prs[s.ex]||score>prs[s.ex].score) prs[s.ex]={...s,score};
+  });
+  document.getElementById('pWorkouts').textContent=db.workouts.length;
+  document.getElementById('pSets').textContent=db.sets.length;
+  document.getElementById('pVolume').textContent=Math.round(volume).toLocaleString();
+  document.getElementById('pPRs').textContent=Object.keys(prs).length;
+
+  const today=dateFromKey(localDateKey());
+  const last7=db.workouts.filter(w=>{
+    const d=dateFromKey(w.date), diff=Math.round((today-d)/86400000);
+    return diff>=0&&diff<7;
+  }).length;
+  const pct=Math.round(last7/7*100);
+  document.getElementById('consistencyPill').textContent=pct+'%';
+  document.getElementById('consistencyBar').style.width=pct+'%';
+
+  // Latest 8 calendar weeks.
+  const ws=weekStart(today);
+  let rows='';
+  for(let i=7;i>=0;i--){
+    const start=addDays(ws,-i*7), end=addDays(start,6);
+    const a=localDateKey(start), b=localDateKey(end);
+    const sets=db.sets.filter(s=>s.date>=a&&s.date<=b);
+    const wsVol=sets.filter(s=>s.kg!=null&&s.reps!=null).reduce((x,s)=>x+s.kg*s.reps,0);
+    const days=new Set(db.workouts.filter(w=>w.date>=a&&w.date<=b).map(w=>w.date)).size;
+    rows+='<tr><td>'+a.slice(5)+' → '+b.slice(5)+'</td><td>'+days+'</td><td>'+sets.length+'</td><td>'+Math.round(wsVol).toLocaleString()+' kg</td></tr>';
+  }
+  document.getElementById('weeklyBreakdown').innerHTML=
+    '<table class="table"><thead><tr><th>Week</th><th>Days</th><th>Sets</th><th>Volume</th></tr></thead><tbody>'+rows+'</tbody></table>';
+
+  renderMuscleBreakdown();
+  populateExerciseFilter();
+  renderExerciseBreakdown();
+  renderWeightHistory();
+  draw();
+}
+function renderMuscleBreakdown(){
+  const selected=document.getElementById('muscleFilter').value;
+  const workouts=selected==='all'?db.workouts:db.workouts.filter(w=>w.group===selected);
+  const dates=new Set(workouts.map(w=>w.date));
+  const sets=db.sets.filter(s=>dates.has(s.date));
+  const groups={};
+  sets.forEach(s=>{
+    if(!groups[s.ex]) groups[s.ex]={sets:0,volume:0,best:0,bestReps:0};
+    groups[s.ex].sets++;
+    if(s.kg!=null&&s.reps!=null){
+      groups[s.ex].volume+=s.kg*s.reps;
+      if(s.kg>groups[s.ex].best){groups[s.ex].best=s.kg;groups[s.ex].bestReps=s.reps;}
+    }
+  });
+  const totalVol=Object.values(groups).reduce((a,x)=>a+x.volume,0);
+  const cards=Object.entries(groups).sort((a,b)=>b[1].volume-a[1].volume).map(([ex,g])=>
+    '<div class="progress-card"><div class="flex"><b>'+ex+'</b><span class="pill">'+g.sets+' sets</span></div>'+
+    '<div class="row" style="margin-top:12px"><div><div class="small">VOLUME</div><div class="metric">'+Math.round(g.volume).toLocaleString()+'</div></div>'+
+    '<div><div class="small">BEST WEIGHT</div><div class="metric">'+fmtKg(g.best)+'</div><div class="small">'+(g.bestReps||'—')+' reps</div></div></div></div>'
+  ).join('');
+  document.getElementById('muscleBreakdown').innerHTML=
+    '<div class="card"><div class="flex"><b>'+selected+'</b><span class="pill">'+sets.length+' sets</span></div><div class="small" style="margin-top:6px">Total volume: '+Math.round(totalVol).toLocaleString()+' kg</div></div>'+
+    (cards||'<div class="card small">No data for this muscle group yet.</div>');
+}
+function populateExerciseFilter(){
+  const sel=document.getElementById('exerciseFilter'), old=sel.value;
+  const names=[...new Set(db.sets.map(s=>s.ex))].sort();
+  sel.innerHTML=names.length?names.map(n=>'<option>'+n+'</option>').join(''):'<option>No exercises yet</option>';
+  if(names.includes(old)) sel.value=old;
+}
+function renderExerciseBreakdown(){
+  const ex=document.getElementById('exerciseFilter').value;
+  if(!ex||ex==='No exercises yet'){document.getElementById('exerciseBreakdown').innerHTML='<div class="card small">No exercise data yet.</div>';return;}
+  const sets=db.sets.filter(s=>s.ex===ex);
+  const byDate={};
+  sets.forEach(s=>(byDate[s.date]??=[]).push(s));
+  const dates=Object.keys(byDate).sort().reverse();
+  let totalVol=0, bestWeight=0, bestReps=0, bestScore=0, rirSum=0, rirN=0;
+  dates.forEach(d=>byDate[d].forEach(s=>{
+    if(s.kg!=null&&s.reps!=null){
+      const score=s.kg*s.reps,total=s.kg*s.reps;
+      totalVol+=total;
+      if(s.kg>bestWeight){bestWeight=s.kg;bestReps=s.reps;}
+      if(score>bestScore)bestScore=score;
+    }
+    if(s.rir!=null){rirSum+=+s.rir;rirN++;}
+  }));
+  const history=dates.slice(0,10).map(d=>{
+    const ss=byDate[d].filter(s=>s.kg!=null&&s.reps!=null);
+    if(!ss.length) return '<tr><td>'+d+'</td><td>—</td><td>—</td><td>—</td></tr>';
+    const best=ss.reduce((a,s)=>(!a||s.kg*s.reps>a.kg*a.reps)?s:a,null);
+    const avgR=ss.filter(s=>s.rir!=null);
+    const ar=avgR.length?(avgR.reduce((a,s)=>a+s.rir,0)/avgR.length).toFixed(1):'—';
+    return '<tr><td>'+d+'</td><td>'+fmtKg(best.kg)+'</td><td>'+best.reps+'</td><td>'+ar+'</td></tr>';
+  }).join('');
+  document.getElementById('exerciseBreakdown').innerHTML=
+    '<div class="progress-card"><b>'+ex+'</b>'+
+    '<div class="row" style="margin-top:12px"><div><div class="small">BEST WEIGHT</div><div class="metric">'+fmtKg(bestWeight)+'</div><div class="small">'+bestReps+' reps</div></div>'+
+    '<div><div class="small">TOTAL VOLUME</div><div class="metric">'+Math.round(totalVol).toLocaleString()+'</div><div class="small">kg × reps</div></div>'+
+    '<div><div class="small">AVG RIR</div><div class="metric">'+(rirN?(rirSum/rirN).toFixed(1):'—')+'</div></div></div></div>'+
+    '<div class="card"><b>Recent sessions</b><table class="table"><thead><tr><th>Date</th><th>Best kg</th><th>Reps</th><th>Avg RIR</th></tr></thead><tbody>'+history+'</tbody></table></div>';
+}
+function renderWeightHistory(){
+  const el=document.getElementById('weightHistory');
+  const vals=db.weight.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+  el.innerHTML=vals.length?'<table class="table"><thead><tr><th>Date</th><th>Weight</th></tr></thead><tbody>'+
+    vals.map(w=>'<tr><td>'+w.date+'</td><td>'+fmtKg(w.kg)+'</td></tr>').join('')+
+    '</tbody></table>':'<div class="small">No weight history yet.</div>';
+}
 function draw(){
   const c=document.getElementById('chart'),ctx=c.getContext('2d');
   ctx.clearRect(0,0,c.width,c.height);
-  const data=db.sets.filter(s=>s.ex==='Incline Dumbbell Press'&&s.kg&&s.reps).map(s=>s.kg*s.reps);
+  const data=db.sets.filter(s=>s.ex==='Incline Dumbbell Press'&&s.kg!=null&&s.reps!=null).map(s=>s.kg*s.reps);
   if(data.length<2){ctx.fillStyle='#9999a3';ctx.font='16px -apple-system';ctx.fillText('Log more incline sets to see progress',30,90);return;}
   const max=Math.max(...data),min=Math.min(...data),pad=30;
   ctx.strokeStyle='#8b6cff';ctx.lineWidth=4;ctx.beginPath();
   data.forEach((v,i)=>{const x=pad+i*(c.width-pad*2)/(data.length-1),y=150-(v-min)/(max-min||1)*110;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
   ctx.stroke();
 }
+function setProgressTab(tab){
+  ['progressOverview','progressMuscle','progressExercise','progressBody'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById(tab==='overview'?'progressOverview':tab==='muscle'?'progressMuscle':tab==='exercise'?'progressExercise':'progressBody').classList.remove('hidden');
+  ['pOverview','pMuscle','pExercise','pBody'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(tab==='overview'?'pOverview':tab==='muscle'?'pMuscle':tab==='exercise'?'pExercise':'pBody').classList.add('active');
+}
+
 
 document.getElementById('startWorkout').addEventListener('click',()=>show('workout'));
 document.getElementById('navHome').addEventListener('click',()=>show('home'));
@@ -248,6 +478,14 @@ document.getElementById('exportData').addEventListener('click',exportData);
 document.getElementById('exSelect').addEventListener('change',e=>{
   document.getElementById('customWrap').classList.toggle('hidden',e.target.value!=='custom');
 });
+
+
+document.getElementById('pOverview').addEventListener('click',()=>setProgressTab('overview'));
+document.getElementById('pMuscle').addEventListener('click',()=>setProgressTab('muscle'));
+document.getElementById('pExercise').addEventListener('click',()=>setProgressTab('exercise'));
+document.getElementById('pBody').addEventListener('click',()=>setProgressTab('body'));
+document.getElementById('muscleFilter').addEventListener('change',renderMuscleBreakdown);
+document.getElementById('exerciseFilter').addEventListener('change',renderExerciseBreakdown);
 
 render();
 </script>
