@@ -50,12 +50,25 @@ canvas{width:100%;height:180px;background:#101014;border-radius:12px;margin-top:
 <div class="card"><b>Body weight</b><label>Current weight (kg)<input id="bw" type="number" step=".1" value="75"></label><button style="margin-top:10px" onclick="saveBW()">Save</button></div>
 <div class="card"><b>Strength chart</b><canvas id="chart" width="500" height="180"></canvas><div class="small">Top set estimated from logged weight × reps.</div></div>
 <div class="card"><b>Workout history</b><div id="hist"></div></div>
+<div class="card"><b>Data</b><div class="small">Your logs stay in this device's browser storage. Export a backup regularly if the data is important.</div>
+<button class="secondary full" style="margin-top:10px" onclick="exportData()">Export backup</button>
+</div>
 </section>
 </main>
 <div class="nav"><button id="navHome" class="active" onclick="show('home')">Home</button><button id="navWorkout" onclick="show('workout')">Workout</button><button id="navProgress" onclick="show('progress')">Progress</button></div>
 
 <script>
-const KEY='gymlog_v2';const today=new Date().toLocaleDateString('en-CA');const todayLabel=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});const initial={
+const KEY='gymlog_v2';
+function localDateKey(d=new Date()){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function localDateLabel(d=new Date()){
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+}
+const today=localDateKey();
+const todayLabel=localDateLabel();
+const initial={
 weight:[{date:'2026-09-07',kg:75}],
 workouts:[{date:'2026-09-07',group:'Chest + Triceps'}],
 sets:[
@@ -79,11 +92,24 @@ sets:[
 function persist(){localStorage.setItem(KEY,JSON.stringify(db));render()}
 function show(id){['home','workout','progress'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));document.getElementById(id==='home'?'navHome':id==='workout'?'navWorkout':'navProgress').classList.add('active');render();if(id==='progress')draw()}
 function addSetRow(){let d=document.createElement('div');d.className='setrow';d.innerHTML='<span class="setnum">SET</span><input class="newkg" type="number" step=".5" placeholder="kg"><input class="newreps" type="number" placeholder="reps"><input class="newrir" type="number" min="0" max="5" placeholder="RIR" style="width:62px"><button class="danger" onclick="this.parentElement.remove()">×</button>';setInputs.appendChild(d)}
-function saveExercise(){let ex=exSelect.value==='custom'?customEx.value.trim():exSelect.value;if(!ex)return alert('Choose an exercise.');let rows=[...document.querySelectorAll('.setrow')];if(!rows.length)return alert('Add at least one set.');rows.forEach(r=>{let kg=r.querySelector('.newkg').value,reps=r.querySelector('.newreps').value,rir=r.querySelector('.newrir').value;db.sets.push({date:today,ex,kg:kg===''?null:+kg,reps:reps===''?null:+reps,rir:rir===''?null:+rir,note:''})});if(!db.workouts.some(w=>w.date===today))db.workouts.push({date:today,group:'Chest + Triceps'});setInputs.innerHTML='';persist();alert('Exercise saved ✓')}
+function saveExercise(){let ex=exSelect.value==='custom'?customEx.value.trim():exSelect.value;if(!ex)return alert('Choose an exercise.');let rows=[...document.querySelectorAll('.setrow')];if(!rows.length)return alert('Add at least one set.');rows.forEach(r=>{let kg=r.querySelector('.newkg').value,reps=r.querySelector('.newreps').value,rir=r.querySelector('.newrir').value;db.sets.push({date:localDateKey(),ex,kg:kg===''?null:+kg,reps:reps===''?null:+reps,rir:rir===''?null:+rir,note:''})});if(!db.workouts.some(w=>w.date===localDateKey()))db.workouts.push({date:localDateKey(),group:'Chest + Triceps'});setInputs.innerHTML='';persist();alert('Exercise saved ✓')}
 function finish(){persist();alert('Workout saved safely on this device ✓');show('home')}
-function saveBW(){let v=+bw.value;if(!v)return;db.weight.push({date:new Date().toISOString().slice(0,10),kg:v});persist();alert('Weight saved ✓')}
+function saveBW(){let v=+bw.value;if(!v)return;db.weight.push({date:localDateKey(),kg:v});persist();alert('Weight saved ✓')}
 function removeSet(i){db.sets.splice(i,1);persist()}
-function render(){let last=db.weight[db.weight.length-1]?.kg;homeWeight.textContent=last?last+' kg':'—';homeWorkouts.textContent=db.workouts.length;todayPill.textContent=todayLabel;workoutSub.textContent=(db.workouts.find(w=>w.date===today)?.group||'Workout')+' · '+todayLabel;let ds=db.sets.filter(s=>s.date===today);let groups={};ds.forEach(s=>(groups[s.ex]??=[]).push(s));todayText.innerHTML=Object.entries(groups).map(([e,a])=>`<div class="exercise"><div class="flex"><b>${e}</b><span class="pill">${a.length} sets</span></div></div>`).join('')||'No sets yet.';setCount.textContent=ds.length+' sets';todaySets.innerHTML=ds.map((s,i)=>`<div class="exercise"><div class="flex"><div><b>${s.ex}</b><div class="small">${s.kg==null?'—':s.kg+' kg'} × ${s.reps==null?'—':s.reps}${s.rir!=null?' · RIR '+s.rir:''}${s.note?' · '+s.note:''}</div></div><button class="danger" onclick="removeSet(${db.sets.indexOf(s)})">×</button></div></div>`).join('');let prs={};db.sets.forEach(s=>{if(s.kg&&s.reps){let score=s.kg*s.reps;if(!prs[s.ex]||score>prs[s.ex].score)prs[s.ex]={...s,score}});homePR.innerHTML=Object.values(prs).map(p=>`<div class="exercise flex"><span>${p.ex}</span><span class="good">${p.kg} kg × ${p.reps}</span></div>`).join('')||'<div class="small">No PRs yet.</div>';hist.innerHTML=db.workouts.slice().reverse().map(w=>`<div class="exercise flex"><span>${w.date}</span><span>${db.sets.filter(s=>s.date===w.date).length} sets</span></div>`).join('')}
+function exportData(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='gymlog-backup-'+today+'.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function render(){
+let now=new Date(), currentDate=localDateKey(now), currentLabel=localDateLabel(now);
+let last=db.weight[db.weight.length-1]?.kg;homeWeight.textContent=last?last+' kg':'—';homeWorkouts.textContent=db.workouts.length;
+todayPill.textContent=currentLabel;
+workoutSub.textContent=(db.workouts.find(w=>w.date===currentDate)?.group||'Workout')+' · '+currentLabel;
+let ds=db.sets.filter(s=>s.date===currentDate);let groups={};ds.forEach(s=>(groups[s.ex]??=[]).push(s));todayText.innerHTML=Object.entries(groups).map(([e,a])=>`<div class="exercise"><div class="flex"><b>${e}</b><span class="pill">${a.length} sets</span></div></div>`).join('')||'No sets yet.';setCount.textContent=ds.length+' sets';todaySets.innerHTML=ds.map((s,i)=>`<div class="exercise"><div class="flex"><div><b>${s.ex}</b><div class="small">${s.kg==null?'—':s.kg+' kg'} × ${s.reps==null?'—':s.reps}${s.rir!=null?' · RIR '+s.rir:''}${s.note?' · '+s.note:''}</div></div><button class="danger" onclick="removeSet(${db.sets.indexOf(s)})">×</button></div></div>`).join('');let prs={};db.sets.forEach(s=>{if(s.kg&&s.reps){let score=s.kg*s.reps;if(!prs[s.ex]||score>prs[s.ex].score)prs[s.ex]={...s,score}});homePR.innerHTML=Object.values(prs).map(p=>`<div class="exercise flex"><span>${p.ex}</span><span class="good">${p.kg} kg × ${p.reps}</span></div>`).join('')||'<div class="small">No PRs yet.</div>';hist.innerHTML=db.workouts.slice().reverse().map(w=>`<div class="exercise flex"><span>${w.date}</span><span>${db.sets.filter(s=>s.date===w.date).length} sets</span></div>`).join('')}
 function draw(){let c=document.getElementById('chart'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);let data=db.sets.filter(s=>s.ex==='Incline Dumbbell Press'&&s.kg&&s.reps).map(s=>s.kg*s.reps);if(data.length<2){ctx.fillStyle='#9999a3';ctx.font='16px -apple-system';ctx.fillText('Log more incline sets to see progress',30,90);return}let max=Math.max(...data),min=Math.min(...data),pad=30;ctx.strokeStyle='#8b6cff';ctx.lineWidth=4;ctx.beginPath();data.forEach((v,i)=>{let x=pad+i*(c.width-pad*2)/(data.length-1),y=150-(v-min)/(max-min||1)*110;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
 render();
 </script>
